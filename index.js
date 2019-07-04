@@ -1,59 +1,42 @@
-
 const http = require('http');
 
+const Response = require('./core/response');
 const {Router} = require('./core/router');
-const ImageController = require('./controllers/images.controller');
-const images = new ImageController({
-    uploadDir: `${__dirname}/images`,
-});
+
+const ImageController = require('./controllers/images/images.controller');
 
 const router = new Router([
     {
         path: '/images',
         method: 'GET',
-        callback: images.form.bind(images)
+        callback: ImageController.form.bind(ImageController)
     },
     {
         path: '/images/all',
         method: 'GET',
-        callback: images.getAll.bind(images)
+        callback: ImageController.getAll.bind(ImageController)
     },
     {
         path: '/images',
         method: 'POST',
-        callback: images.save.bind(images),
+        callback: ImageController.upload.bind(ImageController),
     },
     {
         path: '/images/:id',
         method: 'GET',
-        callback: images.getOne.bind(images),
+        callback: ImageController.getOne.bind(ImageController),
     },
-
+    {
+        path: '/images/:id',
+        method: 'DELETE',
+        callback: ImageController.remove.bind(ImageController),
+    },
 ]);
 
 const server = http.createServer((req, res) => {
     let route = router.find(req.url, req.method);
-    if(route) route.execute(req, res);
-    return;
-
-    if (req.url == '/upload' && req.method == 'POST') {
-        let form = new formidable.IncomingForm();
-        form.uploadDir = IMAGE_DIR;
-        form.parse(req, function(err, fields, files) {
-            res.writeHead(200, {'content-type': 'application/json'});
-            res.end(JSON.stringify({fields, files}));
-        });
-        return;
-    }
-
-    /*if(req.url == `/${filename}` && req.method == 'GET') {
-        // res.setHeader('Content-disposition', `attachment; filename=${filename}`);
-        res.setHeader('Content-type', 'image/png');
-
-        let filestream = fs.createReadStream(file);
-        filestream.pipe(res);
-        return;
-    }*/
+    if(route) return route.execute(req, res);
+    Response.BadRequest(res, new Error('Route not found'));
 });
 
 server.listen(5000);
