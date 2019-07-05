@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsPromise = require('fs').promises;
 const formidable = require('formidable');
 
 const Controller = require('../../core/controller');
@@ -19,11 +20,20 @@ class ImageController extends Controller{
 
     getOne (req, res, route) {
         let id = +route.params.id;
+        let query = route.query;
         if(isNaN(id))
             return Response.ApplicationError(res, new Error(`Invalid url param id must be a number`));
 
-        this._find(id, this.keys)
-            .then(image => Response.Send(res, image))
+        this._find(id)
+            .then(({path, name, type, extension}) => {
+                let headers = {
+                    'Content-disposition': `attachment; filename=${name}.${extension}`,
+                    'Content-Type': type
+                };
+                if(query && query.display === 'true' || query.display === '1')
+                    delete headers['Content-disposition'];
+                Response.Send(res, fs.createReadStream(path), headers);
+            })
             .catch(err => Response.ApplicationError(res, err));
     }
 
@@ -41,24 +51,22 @@ class ImageController extends Controller{
         this._form.parse(req, (err, fields, files) => {
             if(err) return Response.ApplicationError(res, err);
 
-            this._moveImage(fields, files)
+            this._imageRecord(fields, files)
                 .then(image => this._add(image))
                 .then(image => Response.Send(res, image))
                 .catch(err => Response.ApplicationError(res, err));
         });
     }
 
-    _moveImage ({name}, files) {
+    async _imageRecord ({name}, files) {
         let { path: temp, type } = files.upload;
         let id = ++this.counter;
-        let path = `${this.dir}/${id}`;
+        let extension = '.'+type.split('/')[1];
+        let path = `${this.dir}/${id}${extension}`;
 
-        return new Promise((resolve, reject) => {
-            fs.rename(temp, path, err => {
-                if (err) return reject(err);
-                resolve({ id, name, path, type });
-            });
-        });
+        await fsPromise.copyFile(temp, path);
+        return fsPromise.unlink(temp)
+            .then(() => ({ id, name, type, path, extension }));
     }
 
     form (req, res, route) {

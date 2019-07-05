@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 
 /**
  * Controller class for the CRUD operations
@@ -73,12 +73,7 @@ class Controller {
     async _save (data) {
         data = data ? data : {counter: this.counter, data: this.data};
 
-        return new Promise((resolve, reject) => {
-            fs.writeFile(this.collection, JSON.stringify(data), err => {
-                if(err) return reject(err);
-                resolve(data);
-            });
-        });
+        return fs.writeFile(this.collection, JSON.stringify(data));
     }
 
     async _update (id, update) {

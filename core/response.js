@@ -8,12 +8,13 @@ const HEADERS = {
 module.exports = class Response {
     static Send (res, data, options = {}) {
         options = Object.assign({}, HEADERS, options);
-
         Object.keys(options).forEach(h => res.setHeader(h, options[h]));
 
-        let response = data;
-        if(typeof data !== 'string') response = JSON.stringify(data);
-        res.end(response);
+        if(typeof data === 'object' && typeof data.pipe === 'function')
+            return data.pipe(res);
+        if(typeof data === 'string')
+            return res.end(data);
+        return res.end(JSON.stringify(data))
     }
 
     static BadRequest (res, errors = new Error('Something when wrong!')) {
