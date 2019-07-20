@@ -56,7 +56,12 @@
         }
 
         match (path, method = null) {
-            let route = new Route({path, method});
+            let route = new Route({
+                path,
+                method,
+                callback: this.callback,
+                title: this.title
+            });
 
             if(route.method !== this.method) return false;
             if(route.paths.length !== this.paths.length) return false;

@@ -1,100 +1,87 @@
 const fs = require('fs').promises;
 
+const Mongo = require('./mongo');
+const Utils = require('./utils');
+
+const CONFIG = {
+    collection: '',
+    keys: []
+};
+
 /**
  * Controller class for the CRUD operations
  */
 class Controller {
-    constructor({collection}) {
-        this.collection = collection;
-        this.counter = 0;
-        this.data = null;
+    constructor(config = CONFIG) {
+        this.db = new Mongo();
 
-        this._getCollection()
-            .then(({counter, data}) => {
-                this.counter = counter;
-                this.data = data;
-            })
-            .catch(err => console.error(err));
+        this.keys = config.keys;
+        this.collectionName = config.collection;
+        this._collection = null;
     }
 
-    async _getCollection () {
-        return require(this.collection);
+    get collection () {
+        if(this._collection) return Promise.resolve(this._collection);
+        return this.db.getCollection(this.collectionName)
+            .then(collection => this._collection = collection);
     }
 
-    _sanitize (data) {
-        return ['id', 'created', 'updated']
-            .reduce((t, k) => Object.assign(t, {[`${k}`]: data[k]}), {})
+    async _find (query = {}, options = {}) {
+        options = this._getOptions(options);
+        let col = await this.collection;
+        let cursor = col.find(query);
+
+        if(options.project) cursor.project(options.project)
+        if(options.skip) cursor.skip(options.skip);
+        if(options.limit) cursor.limit(options.limit);
+        if(options.filter) cursor.filter(options.filter);
+        if(options.sort) cursor.sort(options.sort);
+
+        return cursor.toArray();
     }
 
-    _isEmpty (data) {
-        if(!data) throw new Error(`Invalid data: ${data}`);
-        if(Array.isArray(data) || typeof data === 'string')
-            return data.length === 0;
-        return Object.keys(data).length === 0;
+    async _findOne (query) {
+        if(Utils.isEmpty(query)) return Promise.reject(new Error(`Empty query or id`));
+        if(Utils.isId(query)) query = {_id: query};
+
+        let col = await this.collection;
+        return col.findOne(query);
     }
 
-    _pick (data, keys = []) {
-        function pick (obj) {
-            return keys.reduce((t, k) => Object.assign(t, {[`${k}`]: obj[k]}), {})
-        }
-        if(Array.isArray(data)) return data.map(obj => pick(obj));
-        return pick(data);
+    async _insertOne (data) {
+        if(Utils.isEmpty(data)) throw new Error(`Empty data`);
+
+        let col = await this.collection;
+        return col.insertOne(data)
+            .then(results => results.ops.length ===1 ? results.ops[0] : results.ops);
     }
 
-    async _findIndex (id) {
-        if(!id) throw new Error(`Invalid id: ${id}`);
+    async _update (query, update, options = null) {
+        if(Utils.isEmpty(query)) throw new Error(`Empty query`);
+        if(Utils.isEmpty(update)) throw new Error(`Empty update`);
 
-        let index = this.data.findIndex(i => i.id === id);
-
-        if(!index <= -1) throw new Error(`Item not found id: ${id}`);
-        return index;
+        let col = await this.collection;
+        return col.update(query, update, options);
     }
 
-    async _find (id, keys) {
-        if(!id) throw new Error(`Invalid id: ${id}`);
+    async _remove (query) {
+        if(Utils.isEmpty(query)) throw new Error(`Empty query`);
 
-        let item = this.data.find(i => i.id === id);
-
-        if(!item) throw new Error(`Item not found id: ${id}`);
-        return keys ? this._pick(item, keys) : item;
+        let col = await this.collection;
+        return col.remove(data);
     }
 
-    async _add (data) {
-        if(!data) throw new Error(`Data is required: ${data}`);
+    _getOptions(query = {}) {
+        let options = {};
 
-        if(!data.id) data.id = ++this.counter;
-        if(!data.created) data.created = new Date();
+        if(query && query.sort) options.sort = [[query.sort, 1]];
+        if(query && query.page) options.skip = query.page;
+        if(query && query.itemPerPage) options.limit = query.itemPerPage;
 
-        this.data.push(data);
-        await this._save();
-        return data;
-    }
+        if(this.keys) options.project = this.keys
+            .reduce((t, k) => Object.assign(t, {[`${k}`]: 1}), {});
 
-    async _save (data) {
-        data = data ? data : {counter: this.counter, data: this.data};
-
-        return fs.writeFile(this.collection, JSON.stringify(data));
-    }
-
-    async _update (id, update) {
-        if(!id) throw new Error(`Invalid id`);
-        if(!update || this._isEmpty(update))
-            throw new Error(`Invalid update data`);
-
-        let item = await this._find(id);
-
-        Object.assign(item, this._sanitize(update));
-        return this._save();
-    }
-
-    async _remove (id) {
-        if(!id) throw new Error(`Invalid id: ${id}`);
-
-        let index = await this._findIndex(id);
-
-        this.data = this.data.splice(index, 1);
-        await this._save();
-        return true;
+        return options;
     }
 }
 

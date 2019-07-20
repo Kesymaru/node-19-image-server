@@ -3,7 +3,7 @@ const http = require('http');
 const Response = require('./core/response');
 const {Router} = require('./core/router');
 
-const ImageController = require('./controllers/images/images.controller');
+const ImageController = require('./controllers/images.controller');
 
 const router = new Router([
     {
@@ -12,24 +12,24 @@ const router = new Router([
         callback: ImageController.form.bind(ImageController)
     },
     {
-        path: '/images/all',
+        path: '/api/v1/images',
         method: 'GET',
         callback: ImageController.getAll.bind(ImageController)
     },
     {
-        path: '/images',
+        path: '/api/v1/images',
         method: 'POST',
-        callback: ImageController.upload.bind(ImageController),
+        callback: ImageController.createOne.bind(ImageController),
     },
     {
-        path: '/images/:id',
+        path: 'api/v1/images/:id',
         method: 'GET',
         callback: ImageController.getOne.bind(ImageController),
     },
     {
-        path: '/images/:id',
+        path: 'api/v1/images/:id',
         method: 'DELETE',
-        callback: ImageController.remove.bind(ImageController),
+        callback: ImageController.removeOne.bind(ImageController),
     },
 ]);
 

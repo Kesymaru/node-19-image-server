@@ -12,6 +12,7 @@
   "author": "Andrey Alfaro <andreyalfaro@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "formidable": "^1.2.1"
+    "formidable": "^1.2.1",
+    "mongodb": "^3.2.7"
   }
 }
